@@ -63,3 +63,6 @@ This log shows the logs of the individual scripts and any errors in that may occ
 
 NerfPack\NerfLogs.txt
 This log shows the logs of the main program each time it cycles on logon. There are stars (****) to show when the program started and ended to help visually see the cycles.
+
+==NOTE==
+the scripts to re-enable features have not been rigorously tested yet, so will want to be sure of what features you want first. If there is a feature that you do not want, you can delete the line that calls the script inside the runNerfCheck.ps1 file.
