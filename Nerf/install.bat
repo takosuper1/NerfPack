@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 :: This script copies files to Program Files and runs installation tasks
 
 echo ================================
-echo    Your Application Installer
+echo    NerfPack Installer
 echo ================================
 echo.
 
@@ -20,7 +20,7 @@ if %errorLevel% neq 0 (
 )
 
 :: Set variables
-set "APP_NAME=YourAppName"
+set "APP_NAME=NerfPack"
 set "INSTALL_DIR=%ProgramFiles%\%APP_NAME%"
 set "SOURCE_DIR=%~dp0"
 
@@ -62,7 +62,7 @@ echo.
 :: Run additional installation tasks
 echo Running installation tasks...
 
-:: Add to PATH (optional)
+:: Add to PATH
 echo Adding %INSTALL_DIR% to system PATH...
 setx PATH "%PATH%;%INSTALL_DIR%" /M >nul 2>&1
 
@@ -72,40 +72,26 @@ if exist "%INSTALL_DIR%\%APP_NAME%.exe" (
     powershell -Command "& {$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\Desktop\%APP_NAME%.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\%APP_NAME%.exe'; $Shortcut.Save()}"
 )
 
-:: Create Start Menu entry
-if exist "%INSTALL_DIR%\%APP_NAME%.exe" (
-    echo Creating Start Menu entry...
-    if not exist "%ProgramData%\Microsoft\Windows\Start Menu\Programs\%APP_NAME%" (
-        mkdir "%ProgramData%\Microsoft\Windows\Start Menu\Programs\%APP_NAME%"
-    )
-    powershell -Command "& {$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%ProgramData%\Microsoft\Windows\Start Menu\Programs\%APP_NAME%\%APP_NAME%.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\%APP_NAME%.exe'; $Shortcut.Save()}"
+:: Run PowerShell installation scripts if they exist
+if exist "%INSTALL_DIR%\unblockScriptsForNerfPack.ps1" (
+    echo Running unblock scripts...
+    powershell -ExecutionPolicy Bypass -File "%INSTALL_DIR%\unblockScriptsForNerfPack.ps1"
 )
 
-:: Register file associations (example for .txt files)
-:: Uncomment and modify as needed
-:: echo Registering file associations...
-:: assoc .yourext=%APP_NAME%File
-:: ftype %APP_NAME%File="%INSTALL_DIR%\%APP_NAME%.exe" "%%1"
-
-:: Install Windows service (if applicable)
-:: Uncomment if your application includes a service
-:: if exist "%INSTALL_DIR%\service.exe" (
-::     echo Installing Windows service...
-::     sc create "%APP_NAME%Service" binPath= "%INSTALL_DIR%\service.exe" start= auto
-::     sc start "%APP_NAME%Service"
-:: )
-
-:: Run custom installation script if it exists
-if exist "%INSTALL_DIR%\custom_install.bat" (
-    echo Running custom installation script...
-    call "%INSTALL_DIR%\custom_install.bat"
+if exist "%INSTALL_DIR%\createNerfTask.ps1" (
+    echo Running task creation script...
+    powershell -ExecutionPolicy Bypass -File "%INSTALL_DIR%\createNerfTask.ps1"
 )
 
 :: Create uninstall script
 echo Creating uninstaller...
 (
 echo @echo off
+echo setlocal enabledelayedexpansion
 echo echo Uninstalling %APP_NAME%...
+echo.
+echo :: Remove scheduled task
+echo schtasks /delete /tn "runNerfCheck" /f ^>nul 2^>^&1
 echo.
 echo :: Stop service if running
 echo sc stop "%APP_NAME%Service" ^>nul 2^>^&1
@@ -118,7 +104,6 @@ echo setx PATH "!newPath!" /M ^>nul 2^>^&1
 echo.
 echo :: Remove shortcuts
 echo del "%USERPROFILE%\Desktop\%APP_NAME%.lnk" ^>nul 2^>^&1
-echo rmdir /s /q "%ProgramData%\Microsoft\Windows\Start Menu\Programs\%APP_NAME%" ^>nul 2^>^&1
 echo.
 echo :: Remove installation directory
 echo rmdir /s /q "%INSTALL_DIR%"
@@ -138,7 +123,6 @@ echo.
 echo Additional features:
 echo - Added to system PATH
 echo - Desktop shortcut created
-echo - Start Menu entry created
 echo - Uninstaller created
 echo.
 echo You can uninstall by running:
