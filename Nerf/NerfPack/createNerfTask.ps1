@@ -6,7 +6,9 @@ $TaskName = "runNerfCheck"
 $TaskDescription = "Runs NerfCheck PowerShell script at user login"
 $ScriptPath = "C:\Program Files\NerfPack\runNerfCheck.ps1"
 $TaskFolder = "\"  # Root folder, or specify like "\MyTasks\"
-$AdminUsername = "charles\_tech"  # Change this to your actual admin username (e.g., "COMPUTERNAME\AdminUser" or "DOMAIN\AdminUser")
+$Cred = Get-Credential  # Prompt for admin credentials
+$AdminUsername = $Cred.UserName  # Change this to your actual admin username (e.g., "COMPUTERNAME\AdminUser" or "DOMAIN\AdminUser")
+$Password = $Cred.GetNetworkCredential().Password
 
 # Check if running as Administrator
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
@@ -32,13 +34,13 @@ try {
     $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
     
     # Create the principal (run as specified admin user with highest privileges)
-    $Principal = New-ScheduledTaskPrincipal -UserId $AdminUsername -LogonType Interactive -RunLevel Highest
+    $Principal = New-ScheduledTaskPrincipal -UserId $Cred.UserName -LogonType Password -RunLevel Highest
     
     # Create the scheduled task
     $Task = New-ScheduledTask -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description $TaskDescription
     
     # Register the task
-    Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskFolder -InputObject $Task -Force
+    Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskFolder -InputObject $Task -User $AdminUsername -Password $Password -Force
     
     Write-Host "SUCCESS: Scheduled task '$TaskName' has been created successfully!" -ForegroundColor Green
     Write-Host "The task will run '$ScriptPath' as '$AdminUsername' with administrator privileges when user '$env:USERNAME' logs in." -ForegroundColor Green
