@@ -1,23 +1,32 @@
 # PowerShell Script to Create a Scheduled Task that runs at Login
 # This script creates a task that executes another PowerShell script when a user logs in
 
+# Check if running as Administrator
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+	try {
+    	Write-Error "This script must be run as Administrator to create scheduled tasks."
+    	Start-Process powershell -Verb runAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+	} catch {
+		Write-Host "Failed to elevate to admin." -ForegroundColor Red
+		Read-Host -Prompt "Press Enter to exit"
+	}
+    exit
+}
+
 # Configuration Variables
 $TaskName = "runNerfCheck"
 $TaskDescription = "Runs NerfCheck PowerShell script at user login"
 $ScriptPath = "C:\Program Files\NerfPack\runNerfCheck.ps1"
 $TaskFolder = "\"  # Root folder, or specify like "\MyTasks\"
-$AdminUsername = "charles\_tech"  # Change this to your actual admin username (e.g., "COMPUTERNAME\AdminUser" or "DOMAIN\AdminUser")
-
-# Check if running as Administrator
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Error "This script must be run as Administrator to create scheduled tasks."
-    exit 1
-}
+$Cred = Get-Credential  # Prompt for admin credentials
+$AdminUsername = $Cred.UserName  # Change this to your actual admin username (e.g., "COMPUTERNAME\AdminUser" or "DOMAIN\AdminUser")
+$Password = $Cred.GetNetworkCredential().Password
 
 # Verify the target script exists
 if (-not (Test-Path $ScriptPath)) {
     Write-Warning "Target script not found at: $ScriptPath"
     Write-Host "Please update the `$ScriptPath variable with the correct path to your script."
+    Read-Host -Prompt "Press Enter to exit"
     exit 1
 }
 
@@ -32,13 +41,13 @@ try {
     $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
     
     # Create the principal (run as specified admin user with highest privileges)
-    $Principal = New-ScheduledTaskPrincipal -UserId $AdminUsername -LogonType Interactive -RunLevel Highest
+    $Principal = New-ScheduledTaskPrincipal -UserId $Cred.UserName -LogonType Password -RunLevel Highest
     
     # Create the scheduled task
     $Task = New-ScheduledTask -Action $Action -Trigger $Trigger -Settings $Settings -Principal $Principal -Description $TaskDescription
     
     # Register the task
-    Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskFolder -InputObject $Task -Force
+    Register-ScheduledTask -TaskName $TaskName -TaskPath $TaskFolder -InputObject $Task -User $AdminUsername -Password $Password -Force
     
     Write-Host "SUCCESS: Scheduled task '$TaskName' has been created successfully!" -ForegroundColor Green
     Write-Host "The task will run '$ScriptPath' as '$AdminUsername' with administrator privileges when user '$env:USERNAME' logs in." -ForegroundColor Green
@@ -63,9 +72,11 @@ try {
     
 } catch {
     Write-Error "Failed to create scheduled task: $($_.Exception.Message)"
+    Read-Host -Prompt "Press Enter to exit"
     exit 1
 }
 
 # Optional: Display all scheduled tasks for verification
 Write-Host "`nTo delete this task later, run:" -ForegroundColor Cyan
 Write-Host "Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false" -ForegroundColor White
+Read-Host -Prompt "Press Enter to exit"
